@@ -8,7 +8,7 @@
 // The grader runs exactly this, with its own output directory.
 
 import { buildDossier } from './vendor/makefun-game.ts';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,7 +16,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const outDir = process.env.MAKEFUN_OUTPUT_DIR || '/output';
 
 // Start from a clean output directory so stale files can never leak in.
-if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
+// Clear only the directory's CONTENTS, never the directory itself: on the
+// grader /output is a mount point, and removing a mount point fails with
+// EBUSY (rmdir: resource busy or locked) — that crash killed the first
+// submission's dev grade. A fresh empty mount stays empty; a local temp
+// dir gets its stale entries removed the same way.
+if (existsSync(outDir)) {
+  for (const entry of readdirSync(outDir)) {
+    rmSync(join(outDir, entry), { recursive: true, force: true });
+  }
+} else {
+  mkdirSync(outDir, { recursive: true });
+}
 mkdirSync(join(outDir, 'game'), { recursive: true });
 mkdirSync(join(outDir, 'screenshots'), { recursive: true });
 
